@@ -14,6 +14,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
 )
 
+from ...utils.misc import IS_MAC
 from ...utils.translations import trans
 
 if TYPE_CHECKING:
@@ -52,11 +53,16 @@ class PreferencesDialog(QDialog):
         self._button_ok.setDefault(True)
         self._button_restore = QPushButton(trans._("Restore defaults"))
         self._button_restore.clicked.connect(self._restore_default_dialog)
+        self._button_open_dir = QPushButton(
+            trans._(f"Open in {'Finder' if IS_MAC else 'File Explorer'}")
+        )
+        self._button_open_dir.clicked.connect(self._open_dir)
 
         # Layout
         left_layout = QVBoxLayout()
         left_layout.addWidget(self._list)
         left_layout.addStretch()
+        left_layout.addWidget(self._button_open_dir)
         left_layout.addWidget(self._button_restore)
         left_layout.addWidget(self._button_cancel)
         left_layout.addWidget(self._button_ok)
@@ -192,6 +198,13 @@ class PreferencesDialog(QDialog):
                 "A restart is required for some new settings to have an effect."
             ),
         )
+
+    def _open_dir(self):
+        """Open directory containing configuration file."""
+        from webbrowser import open
+
+        path = self._settings._config_path.parent
+        open(path.as_uri())
 
     def closeEvent(self, event: 'QCloseEvent') -> None:
         event.accept()

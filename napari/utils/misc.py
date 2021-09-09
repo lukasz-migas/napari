@@ -39,6 +39,9 @@ except ImportError:
     import importlib_metadata  # noqa
 
 
+IS_MAC = sys.platform == "darwin"
+
+
 def parse_version(v) -> 'packaging.version._BaseVersion':
     """Parse a version string and return a packaging.version.Version obj."""
     import packaging.version
