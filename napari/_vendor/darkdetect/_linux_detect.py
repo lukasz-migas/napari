@@ -5,15 +5,20 @@
 #-----------------------------------------------------------------------------
 
 import subprocess
-import typing
 
 def theme():
-    # Here we just triage to GTK settings for now
     try:
+        #Using the freedesktop specifications for checking dark mode
         out = subprocess.run(
-            ['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'],
+            ['gsettings', 'get', 'org.gnome.desktop.interface', 'color-scheme'],
             capture_output=True)
         stdout = out.stdout.decode()
+        #If not found then trying older gtk-theme method
+        if len(stdout)<1:
+            out = subprocess.run(
+                ['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'],
+                capture_output=True)
+            stdout = out.stdout.decode()
     except Exception:
         return 'Light'
     # we have a string, now remove start and end quote
@@ -29,7 +34,8 @@ def isDark():
 def isLight():
     return theme() == 'Light'
 
-def listener(callback: typing.Callable[[str], None]) -> None:
+# def listener(callback: typing.Callable[[str], None]) -> None:
+def listener(callback):
     with subprocess.Popen(
         ('gsettings', 'monitor', 'org.gnome.desktop.interface', 'gtk-theme'),
         stdout=subprocess.PIPE,
