@@ -390,6 +390,13 @@ def _run():
 
         if running_as_bundled_app():
             install_certifi_opener()
+        else:
+            # only allowed in non bundled app
+            # ideally, we would also check whether this is an editable install
+            from napari._qt.widgets.qt_reload import install_hot_reload
+
+            install_hot_reload(viewer.window)
+
         run(gui_exceptions=True)
 
 
