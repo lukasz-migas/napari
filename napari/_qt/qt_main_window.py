@@ -685,6 +685,9 @@ class Window:
         viewer.events.theme.connect(self._update_theme)
         viewer.events.status.connect(self._status_changed)
 
+        self._dev = None
+        self._setup_dev_tools()
+
         if show:
             self.show()
             # Ensure the controls dock uses the minimum height
@@ -696,6 +699,39 @@ class Window:
                 [self._qt_viewer.dockLayerControls.minimumHeight(), 10000],
                 Qt.Orientation.Vertical,
             )
+
+    def _setup_dev_tools(self):
+        """Setup development tools."""
+        import os
+
+        try:
+            if os.getenv("NAPARI_DEV_MODE", "0") == "1" and self._dev is None:
+                import logging
+
+                from napari._qt.widgets.qt_dev import (
+                    install_debugger_hook,
+                    qdev,
+                )
+
+                logger = logging.getLogger("napari")
+                logger.setLevel(logging.DEBUG)
+                self._dev = qdev()
+                logger.debug("Installed development tools.")
+                self.dockQDev = QtViewerDockWidget(
+                    self,
+                    self._dev,
+                    name="Reload Widget",
+                    area="left",
+                    allowed_areas=["left", "right"],
+                    object_name="qdev",
+                    close_btn=False,
+                )
+                self._add_viewer_dock_widget(
+                    self.dockQDev, tabify=False, menu=self.window_menu
+                )
+                install_debugger_hook()
+        except Exception as e:  # noqa
+            print(f"Failed to install development tools. Error={e}")
 
     def _setup_existing_themes(self, connect: bool = True):
         """This function is only executed once at the startup of napari

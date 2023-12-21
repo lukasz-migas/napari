@@ -237,13 +237,7 @@ class QtImageControls(QtBaseImageControls):
         self.layer.plane.thickness = value
 
     def changeIsoThreshold(self, value):
-        """Change isosurface threshold on the layer model.
-
-        Parameters
-        ----------
-        value : float
-            Threshold for isosurface.
-        """
+        """Change isosurface threshold on the layer model."""
         with self.layer.events.blocker(self._on_iso_threshold_change):
             self.layer.iso_threshold = value
 
