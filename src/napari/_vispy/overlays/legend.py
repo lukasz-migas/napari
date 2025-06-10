@@ -78,70 +78,99 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
         visual.node.text.pos = np.array([[0, 0]], dtype=np.float32)
         return None
 
-    anchor_x, anchor_y = 'center', 'top'
     if overlay.align in [Alignment.ROW, Alignment.ROW_SPLIT]:
-        x_offset, y_offset = 0, 50
+        x_offset, y_offset = 0, 20
     else:
-        x_offset, y_offset = 50, 0
-        anchor_x = (
-            'left'
-            if overlay.position
-            in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
-            else 'right'
-        )
+        x_offset, y_offset = 50, 20
+    anchor_x = (
+        'right'
+        if overlay.position
+        in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
+        else 'left'
+    )
 
-    translate_x, translate_y, _, _ = visual.node.transform.translate
     max_x, max_y = visual.node.canvas.size
     translate_x, translate_y = 0, max_y
 
-    # first let's find out what would be the total width of the text, as it will change
-    # how much horizontal offset is needed when displaying in the center
-
     # let's calculate any offsets and anchors
+    reverse = False
     if overlay.position in [
         CanvasPosition.TOP_LEFT,
         CanvasPosition.TOP_CENTER,
         CanvasPosition.TOP_RIGHT,
     ]:
-        reverse = False
-        x_operator = add
-        y_operator = add
-        anchor_y = 'top'
-        y_start_ = max_y - translate_y + y_offset
+        x_operator = y_operator = add
+        anchor_y = 'bottom'
+        start_y = max_y - translate_y + y_offset
         if overlay.position == CanvasPosition.TOP_LEFT:
-            x_start_ = translate_x + x_offset
+            start_x = translate_x + x_offset
         elif overlay.position == CanvasPosition.TOP_CENTER:
-            x_start_ = max_x / 2 - translate_x / 2 + x_offset
+            start_x = max_x / 2 - translate_x / 2 + x_offset
             anchor_x = 'center'
         else:
-            x_start_ = max_x - translate_x - x_offset
+            start_x = max_x - translate_x - x_offset
             x_operator = sub
+            reverse = True
     else:
-        reverse = True
-        x_operator = sub
-        y_operator = sub
-        anchor_y = 'bottom'
-        y_start_ = translate_y - y_offset
+        x_operator = y_operator = sub
+        anchor_y = 'top'
+        start_y = translate_y - y_offset
         if overlay.position == CanvasPosition.BOTTOM_LEFT:
-            x_start_ = translate_x + x_offset
+            start_x = translate_x + x_offset
             x_operator = add
         elif overlay.position == CanvasPosition.BOTTOM_CENTER:
-            x_start_ = max_x / 2 - translate_x / 2 + x_offset
+            start_x = max_x / 2 - translate_x / 2 + x_offset
             anchor_x = 'center'
         else:
-            x_start_ = max_x - translate_x - x_offset
+            start_x = max_x - translate_x - x_offset
+            reverse = True
 
-    padding = 3 if len(overlay.text()) > 1 else 0
-    height = text_factor * 0.75
-    positions = []
+    # let's keep the original start_x and start_y for the next row
+    start_x_ = start_x
+    start_y_ = start_y
+
+    # some padding and height calculations
+    padding = 1 if len(overlay.text()) > 1 else 0
+    width = text_factor * 0.8
+    height = text_factor * 1.5
+    max_text_width, max_text_height = 0, height
+
+    # calculate the positions of the text
+    texts, positions = [], []
     for text in overlay.text(reverse):
-        n = len(text)
+        # add text
+        texts.append(f'{text}{" " * padding}')
+        n = len(texts[-1])  # number of characters in the text
+        max_text_width = max(max_text_height, n * width)
+
+        # single row of legend items
         if overlay.align == Alignment.ROW:
-            x_start_ = x_operator(x_start_, (n + padding) * text_factor)
+            start_x = x_operator(start_x, n * width)
+        # potentially multiple row of legend items
+        elif overlay.align == Alignment.ROW_SPLIT:
+            start_x = x_operator(start_x, n * width)
+            if start_x > max_x:
+                start_x = x_operator(start_x_, n * width)
+                start_y = start_y + height + padding
+
+        # single column of legend items
         elif overlay.align == Alignment.COLUMN:
-            y_start_ = y_operator(y_start_, height + padding * text_factor)
-        positions.append((x_start_, y_start_))
-    visual.node.text.text = overlay.text(reverse)
+            start_y = y_operator(start_y, padding + height)
+        # potentially multiple column of legend items
+        elif overlay.align == Alignment.COLUMN_SPLIT:
+            start_y = y_operator(start_y, padding + height)
+            if (start_y + height) > max_y:
+                start_y = y_operator(start_y_, padding + height)
+                start_x = max_text_width
+        else:
+            raise ValueError(
+                f'Unknown alignment {overlay.align} for legend overlay.'
+            )
+        # print(text, n, start_x)
+        positions.append((start_x, start_y))
+    # print('??', anchor_x, anchor_y)
+    # actually update the text visual
+    visual.node.text.text = np.array(texts)
     visual.node.text.color = overlay.color(reverse)
     visual.node.text.pos = np.array(positions, dtype=np.float32)
     visual.node.text.anchors = (anchor_x, anchor_y)

@@ -67,7 +67,7 @@ class LegendOverlay(CanvasOverlay):
         array = np.array([item.text for item in self.items])
         return array if not reverse else array[::-1]
 
-    def color(self, reverse=True) -> None | np.ndarray:
+    def color(self, reverse: bool = False) -> None | np.ndarray:
         """Get the color of the legend items."""
         if not self.items:
             return None
@@ -113,11 +113,12 @@ class LegendOverlay(CanvasOverlay):
             The legend item to be removed. Can be either the text of the item
             or the item itself.
         """
-        if isinstance(item, str):
-            item = next((i for i in self.items if i.text == item), None)
-        if item in self.items:
+        if isinstance(item, LegendItem):
             self.items.remove(item)
-            self.events.items()
+        else:
+            items = [i for i in self.items if i.text == item]
+            [self.items.remove(item) for item in items]
+        self.events.items()
 
     def clear(self):
         """Clear all legend items from the overlay."""
