@@ -26,16 +26,15 @@ viewer = napari.view_image(data.astronaut(), rgb=True)
 #     data.cells3d(), channel_axis=1, name=['membrane', 'nuclei']
 # )
 
-# for index in range(5):
-#     viewer.legend_overlay.add(f'Label {index} ', 'red')
-
 viewer.legend_overlay.visible = True
 viewer.legend_overlay.font_size = 48
-viewer.legend_overlay.position = 'top_right'
-viewer.legend_overlay.align = 'column'
-viewer.legend_overlay.add('Red', 'red')
-viewer.legend_overlay.add('Green', 'green')
-viewer.legend_overlay.add('Blue', 'blue')
+viewer.legend_overlay.position = 'bottom_left'
+viewer.legend_overlay.align = 'column_split'
+for index in range(25):
+    viewer.legend_overlay.add(f'Label {index} ', 'red')
+# viewer.legend_overlay.add('Red', 'red')
+# viewer.legend_overlay.add('Green', 'green')
+# viewer.legend_overlay.add('Blue', 'blue')
 
 if __name__ == '__main__':
     napari.run()

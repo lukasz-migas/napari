@@ -21,6 +21,7 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         self.overlay.events.position.connect(self._on_text_change)
         self.overlay.events.align.connect(self._on_text_change)
         self.overlay.events.items.connect(self._on_text_change)
+        self.node.canvas.events.resize.connect(self._on_text_change)
         # self.viewer.events.theme.connect(self._on_data_change)
 
         self.reset()
@@ -37,26 +38,23 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         self.node.transform.translate = [self.x_offset, self.y_offset, 0, 0]
         scale = abs(self.node.transform.scale[0])
         self.node.transform.scale = [scale, 1, 1, 1]
+        self._on_text_change()
 
-    def _on_text_change(self):
+    def _on_text_change(self, event=None):
         """Update text information"""
         # update the dpi scale factor to account for screen dpi
         # because vispy scales pixel height of text by screen dpi
+        dpi_scale_factor = 1
         if self.node.text.transforms.dpi:
             # use 96 as the napari reference dpi for historical reasons
             dpi_scale_factor = 96 / self.node.text.transforms.dpi
-        else:
-            dpi_scale_factor = 1
 
         self.node.text.font_size = text_factor = (
             self.overlay.font_size * dpi_scale_factor
         )
-        # changing the fox size changes the box height and positioning in it
-        # self.node._update_layout(font_size=self.overlay.font_size)
-
         # positioning in the box uses the center of the box
         # need to adjust the y_size to be half the size of the current box height
-        # self.y_size = self.node.box.height / 2
+        self.y_size = self.node.box.height / 2
         update_text(self, text_factor)
 
     def reset(self):
@@ -116,23 +114,6 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
     anchor_y = ANCHOR_Y_MAP[overlay.position]
     offset_x = OFFSET_X_MAP[overlay.position]
     offset_y = OFFSET_Y_MAP[overlay.position]
-    # if overlay.align in [Alignment.ROW, Alignment.ROW_SPLIT]:
-    #     x_offset = (
-    #         0
-    #         if overlay.position
-    #         in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
-    #         else 50
-    #     )
-    #     y_offset = 20
-    #     # anchor_x = (
-    #     #     'left'
-    #     #     if overlay.position
-    #     #     in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
-    #     #     else 'right'
-    #     # )
-    # else:
-    #     x_offset = 0
-    #     y_offset = 20
 
     max_x, max_y = visual.node.canvas.size
 
@@ -159,7 +140,7 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
         if overlay.position == CanvasPosition.BOTTOM_LEFT:
             x_operator = add
         elif overlay.position == CanvasPosition.BOTTOM_RIGHT:
-            start_x = max_x - offset_x
+            start_x = max_x + offset_x
 
     # let's keep the original start_x and start_y for the next row
     start_x_ = start_x
@@ -168,7 +149,7 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
     # some padding and height calculations
     padding = 0  # 1 if len(overlay.text()) > 1 else 0
     width = text_factor * 0.8
-    height = text_factor * 1.5
+    height = text_factor * 1.75
     max_text_width, max_text_height = 0, height
 
     # calculate the positions of the text
@@ -195,9 +176,11 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
         # potentially multiple column of legend items
         elif overlay.align == Alignment.COLUMN_SPLIT:
             start_y = y_operator(start_y, height)
-            if (start_y + height) > max_y:
+            if start_y + height > max_y or start_y < 0:
                 start_y = y_operator(start_y_, height)
-                start_x = max_text_width
+                start_x = x_operator(
+                    x_operator(start_x, max_text_width), width
+                )
         else:
             raise ValueError(
                 f'Unknown alignment {overlay.align} for legend overlay.'
