@@ -31,8 +31,8 @@ viewer = napari.view_image(data.astronaut(), rgb=True)
 
 viewer.legend_overlay.visible = True
 viewer.legend_overlay.font_size = 48
-viewer.legend_overlay.position = 'top_left'
-viewer.legend_overlay.align = 'row'
+viewer.legend_overlay.position = 'top_right'
+viewer.legend_overlay.align = 'column'
 viewer.legend_overlay.add('Red', 'red')
 viewer.legend_overlay.add('Green', 'green')
 viewer.legend_overlay.add('Blue', 'blue')

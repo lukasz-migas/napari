@@ -67,6 +67,40 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         self._on_position_change()
 
 
+ANCHOR_X_MAP = {
+    CanvasPosition.TOP_LEFT: 'left',
+    CanvasPosition.TOP_CENTER: 'center',
+    CanvasPosition.TOP_RIGHT: 'right',
+    CanvasPosition.BOTTOM_LEFT: 'left',
+    CanvasPosition.BOTTOM_CENTER: 'center',
+    CanvasPosition.BOTTOM_RIGHT: 'right',
+}
+ANCHOR_Y_MAP = {
+    CanvasPosition.TOP_LEFT: 'top',
+    CanvasPosition.TOP_CENTER: 'top',
+    CanvasPosition.TOP_RIGHT: 'top',
+    CanvasPosition.BOTTOM_LEFT: 'bottom',
+    CanvasPosition.BOTTOM_CENTER: 'bottom',
+    CanvasPosition.BOTTOM_RIGHT: 'bottom',
+}
+OFFSET_X_MAP = {
+    CanvasPosition.TOP_LEFT: 0,
+    CanvasPosition.TOP_CENTER: 0,
+    CanvasPosition.TOP_RIGHT: 50,
+    CanvasPosition.BOTTOM_LEFT: 0,
+    CanvasPosition.BOTTOM_CENTER: 0,
+    CanvasPosition.BOTTOM_RIGHT: 50,
+}
+OFFSET_Y_MAP = {
+    CanvasPosition.TOP_LEFT: 20,
+    CanvasPosition.TOP_CENTER: 20,
+    CanvasPosition.TOP_RIGHT: 20,
+    CanvasPosition.BOTTOM_LEFT: 20,
+    CanvasPosition.BOTTOM_CENTER: 20,
+    CanvasPosition.BOTTOM_RIGHT: 20,
+}
+
+
 def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
     """Get position of the legend overlay."""
     from operator import add, sub
@@ -78,19 +112,29 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
         visual.node.text.pos = np.array([[0, 0]], dtype=np.float32)
         return None
 
-    if overlay.align in [Alignment.ROW, Alignment.ROW_SPLIT]:
-        x_offset, y_offset = 0, 20
-    else:
-        x_offset, y_offset = 50, 20
-    anchor_x = (
-        'right'
-        if overlay.position
-        in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
-        else 'left'
-    )
+    anchor_x = ANCHOR_X_MAP[overlay.position]
+    anchor_y = ANCHOR_Y_MAP[overlay.position]
+    offset_x = OFFSET_X_MAP[overlay.position]
+    offset_y = OFFSET_Y_MAP[overlay.position]
+    # if overlay.align in [Alignment.ROW, Alignment.ROW_SPLIT]:
+    #     x_offset = (
+    #         0
+    #         if overlay.position
+    #         in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
+    #         else 50
+    #     )
+    #     y_offset = 20
+    #     # anchor_x = (
+    #     #     'left'
+    #     #     if overlay.position
+    #     #     in [CanvasPosition.TOP_LEFT, CanvasPosition.BOTTOM_LEFT]
+    #     #     else 'right'
+    #     # )
+    # else:
+    #     x_offset = 0
+    #     y_offset = 20
 
     max_x, max_y = visual.node.canvas.size
-    translate_x, translate_y = 0, max_y
 
     # let's calculate any offsets and anchors
     reverse = False
@@ -99,38 +143,30 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
         CanvasPosition.TOP_CENTER,
         CanvasPosition.TOP_RIGHT,
     ]:
+        start_x = offset_x
+        start_y = offset_y
         x_operator = y_operator = add
-        anchor_y = 'bottom'
-        start_y = max_y - translate_y + y_offset
-        if overlay.position == CanvasPosition.TOP_LEFT:
-            start_x = translate_x + x_offset
-        elif overlay.position == CanvasPosition.TOP_CENTER:
-            start_x = max_x / 2 - translate_x / 2 + x_offset
-            anchor_x = 'center'
-        else:
-            start_x = max_x - translate_x - x_offset
+        if overlay.position == CanvasPosition.TOP_RIGHT:
             x_operator = sub
-            reverse = True
+            reverse = overlay.align in [Alignment.ROW, Alignment.ROW_SPLIT]
+            start_x = max_x - offset_x
+
     else:
+        start_x = offset_x
+        start_y = max_y - offset_y
         x_operator = y_operator = sub
-        anchor_y = 'top'
-        start_y = translate_y - y_offset
+        reverse = overlay.align in [Alignment.COLUMN, Alignment.COLUMN_SPLIT]
         if overlay.position == CanvasPosition.BOTTOM_LEFT:
-            start_x = translate_x + x_offset
             x_operator = add
-        elif overlay.position == CanvasPosition.BOTTOM_CENTER:
-            start_x = max_x / 2 - translate_x / 2 + x_offset
-            anchor_x = 'center'
-        else:
-            start_x = max_x - translate_x - x_offset
-            reverse = True
+        elif overlay.position == CanvasPosition.BOTTOM_RIGHT:
+            start_x = max_x - offset_x
 
     # let's keep the original start_x and start_y for the next row
     start_x_ = start_x
     start_y_ = start_y
 
     # some padding and height calculations
-    padding = 1 if len(overlay.text()) > 1 else 0
+    padding = 0  # 1 if len(overlay.text()) > 1 else 0
     width = text_factor * 0.8
     height = text_factor * 1.5
     max_text_width, max_text_height = 0, height
@@ -151,24 +187,24 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
             start_x = x_operator(start_x, n * width)
             if start_x > max_x:
                 start_x = x_operator(start_x_, n * width)
-                start_y = start_y + height + padding
+                start_y = start_y + height
 
         # single column of legend items
         elif overlay.align == Alignment.COLUMN:
-            start_y = y_operator(start_y, padding + height)
+            start_y = y_operator(start_y, height)
         # potentially multiple column of legend items
         elif overlay.align == Alignment.COLUMN_SPLIT:
-            start_y = y_operator(start_y, padding + height)
+            start_y = y_operator(start_y, height)
             if (start_y + height) > max_y:
-                start_y = y_operator(start_y_, padding + height)
+                start_y = y_operator(start_y_, height)
                 start_x = max_text_width
         else:
             raise ValueError(
                 f'Unknown alignment {overlay.align} for legend overlay.'
             )
-        # print(text, n, start_x)
+        # print(text, start_x_, start_x, max_x, start_y_, start_y, max_y)
         positions.append((start_x, start_y))
-    # print('??', anchor_x, anchor_y)
+    # print('??', anchor_x, anchor_y, reverse)
     # actually update the text visual
     visual.node.text.text = np.array(texts)
     visual.node.text.color = overlay.color(reverse)
