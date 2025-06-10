@@ -35,6 +35,7 @@ from napari.components.layerlist import LayerList
 from napari.components.overlays import (
     AxesOverlay,
     BrushCircleOverlay,
+    LegendOverlay,
     Overlay,
     ScaleBarOverlay,
     TextOverlay,
@@ -118,6 +119,7 @@ def _current_theme() -> str:
 DEFAULT_OVERLAYS = {
     'scale_bar': ScaleBarOverlay,
     'text': TextOverlay,
+    'legend': LegendOverlay,
     'axes': AxesOverlay,
     'brush_circle': BrushCircleOverlay,
 }
@@ -305,6 +307,10 @@ class ViewerModel(KeymapProvider, MousemapProvider, EventedModel):
     @property
     def text_overlay(self):
         return self._overlays['text']
+
+    @property
+    def legend_overlay(self):
+        return self._overlays['legend']
 
     @property
     def _brush_circle_overlay(self):

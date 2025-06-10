@@ -21,6 +21,22 @@ class CanvasPosition(StrEnum):
     BOTTOM_LEFT = 'bottom_left'
 
 
+class Alignment(StrEnum):
+    """Alignment of text in legend.
+
+    Sets the alignment of text labels in the legend overlay.
+        * row: All text labels are in a single row.
+        * column: All text labels are in a single column.
+        * row_split: Text labels are in a single row, but can wrap to multiple lines.
+        * column_split: Text labels are in a single column, but can wrap to multiple lines.
+    """
+
+    ROW = 'row'
+    COLUMN = 'column'
+    ROW_SPLIT = 'row_split'
+    COLUMN_SPLIT = 'column_split'
+
+
 class CursorStyle(StrEnum):
     """CursorStyle: Style on the cursor.
 
