@@ -20,6 +20,7 @@ class LegendItem(EventedModel):
         Color of the legend item.
     """
 
+    visible: bool = True
     text: str = ''
     color: ColorValue = Field(
         default_factory=lambda: ColorValue((0.5, 0.5, 0.5, 1.0))
@@ -60,6 +61,10 @@ class LegendOverlay(CanvasOverlay):
         default_factory=lambda: ColorValue([0, 0, 0, 0.6])
     )
 
+    def visible_count(self) -> int:
+        """Number of visible legend items."""
+        return sum(item.visible for item in self.items)
+
     def text(self, reverse: bool = False) -> np.ndarray:
         """Get the text of the legend items."""
         if not self.items:
@@ -74,7 +79,7 @@ class LegendOverlay(CanvasOverlay):
         array = np.array([item.color for item in self.items], dtype=np.float32)
         return array if not reverse else array[::-1]
 
-    def add(self, text: str, color: ColorValue):
+    def add(self, text: str, color: ColorValue, visible: bool = True):
         """Add a legend item to the overlay.
 
         Parameters
@@ -83,8 +88,10 @@ class LegendOverlay(CanvasOverlay):
             The text to be displayed in the legend item.
         color : ColorValue
             The color of the legend item.
+        visible : bool
+            Whether the legend item is visible or not.
         """
-        item = LegendItem(text=text, color=color)
+        item = LegendItem(text=text, color=color, visible=visible)
         self.items.append(item)
         self.events.items()
 

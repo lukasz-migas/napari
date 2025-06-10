@@ -4,7 +4,10 @@ import numpy as np
 
 from napari._vispy.overlays.base import ViewerOverlayMixin, VispyCanvasOverlay
 from napari._vispy.visuals.legend import Legend
-from napari.components._viewer_constants import Alignment, CanvasPosition
+from napari.components._viewer_constants import (
+    Alignment as A,
+    CanvasPosition as CP,
+)
 from napari.components.overlays import LegendOverlay
 
 
@@ -22,7 +25,6 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         self.overlay.events.align.connect(self._on_text_change)
         self.overlay.events.items.connect(self._on_text_change)
         self.node.canvas.events.resize.connect(self._on_text_change)
-        # self.viewer.events.theme.connect(self._on_data_change)
 
         self.reset()
 
@@ -66,36 +68,36 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
 
 
 ANCHOR_X_MAP = {
-    CanvasPosition.TOP_LEFT: 'left',
-    CanvasPosition.TOP_CENTER: 'center',
-    CanvasPosition.TOP_RIGHT: 'right',
-    CanvasPosition.BOTTOM_LEFT: 'left',
-    CanvasPosition.BOTTOM_CENTER: 'center',
-    CanvasPosition.BOTTOM_RIGHT: 'right',
+    CP.TOP_LEFT: 'left',
+    CP.TOP_CENTER: 'center',
+    CP.TOP_RIGHT: 'right',
+    CP.BOTTOM_LEFT: 'left',
+    CP.BOTTOM_CENTER: 'center',
+    CP.BOTTOM_RIGHT: 'right',
 }
 ANCHOR_Y_MAP = {
-    CanvasPosition.TOP_LEFT: 'top',
-    CanvasPosition.TOP_CENTER: 'top',
-    CanvasPosition.TOP_RIGHT: 'top',
-    CanvasPosition.BOTTOM_LEFT: 'bottom',
-    CanvasPosition.BOTTOM_CENTER: 'bottom',
-    CanvasPosition.BOTTOM_RIGHT: 'bottom',
+    CP.TOP_LEFT: 'top',
+    CP.TOP_CENTER: 'top',
+    CP.TOP_RIGHT: 'top',
+    CP.BOTTOM_LEFT: 'bottom',
+    CP.BOTTOM_CENTER: 'bottom',
+    CP.BOTTOM_RIGHT: 'bottom',
 }
 OFFSET_X_MAP = {
-    CanvasPosition.TOP_LEFT: 0,
-    CanvasPosition.TOP_CENTER: 0,
-    CanvasPosition.TOP_RIGHT: 50,
-    CanvasPosition.BOTTOM_LEFT: 0,
-    CanvasPosition.BOTTOM_CENTER: 0,
-    CanvasPosition.BOTTOM_RIGHT: 50,
+    CP.TOP_LEFT: 0,
+    CP.TOP_CENTER: 0,
+    CP.TOP_RIGHT: 50,
+    CP.BOTTOM_LEFT: 0,
+    CP.BOTTOM_CENTER: 0,
+    CP.BOTTOM_RIGHT: 50,
 }
 OFFSET_Y_MAP = {
-    CanvasPosition.TOP_LEFT: 20,
-    CanvasPosition.TOP_CENTER: 20,
-    CanvasPosition.TOP_RIGHT: 20,
-    CanvasPosition.BOTTOM_LEFT: 20,
-    CanvasPosition.BOTTOM_CENTER: 20,
-    CanvasPosition.BOTTOM_RIGHT: 20,
+    CP.TOP_LEFT: 20,
+    CP.TOP_CENTER: 20,
+    CP.TOP_RIGHT: 20,
+    CP.BOTTOM_LEFT: 20,
+    CP.BOTTOM_CENTER: 20,
+    CP.BOTTOM_RIGHT: 20,
 }
 
 
@@ -103,94 +105,107 @@ def update_text(visual: VispyLegendOverlay, text_factor: float) -> None:
     """Get position of the legend overlay."""
     from operator import add, sub
 
-    overlay = visual.overlay
-    if not overlay.items:
-        visual.node.text.text = overlay.text()
-        visual.node.text.color = overlay.color()
+    ovr = visual.overlay
+    if ovr.visible_count() == 0:
+        visual.node.text.text = ovr.text()
+        visual.node.text.color = ovr.color()
         visual.node.text.pos = np.array([[0, 0]], dtype=np.float32)
         return None
 
-    anchor_x = ANCHOR_X_MAP[overlay.position]
-    anchor_y = ANCHOR_Y_MAP[overlay.position]
-    offset_x = OFFSET_X_MAP[overlay.position]
-    offset_y = OFFSET_Y_MAP[overlay.position]
+    anchor_x = ANCHOR_X_MAP[ovr.position]
+    anchor_y = ANCHOR_Y_MAP[ovr.position]
+    offset_x = OFFSET_X_MAP[ovr.position]
+    offset_y = OFFSET_Y_MAP[ovr.position]
 
     max_x, max_y = visual.node.canvas.size
+    width = text_factor * 0.8
+    height = text_factor * 1.75
 
     # let's calculate any offsets and anchors
-    reverse = False
-    if overlay.position in [
-        CanvasPosition.TOP_LEFT,
-        CanvasPosition.TOP_CENTER,
-        CanvasPosition.TOP_RIGHT,
-    ]:
-        start_x = offset_x
-        start_y = offset_y
+    start_x, start_y, x_operator, y_operator = (offset_x, offset_y, add, add)
+    padding = 0 if ovr.align in [A.COLUMN, A.COLUMN_SPLIT] else 25
+    if ovr.align in [A.COLUMN, A.COLUMN_SPLIT] and ovr.position == CP.TOP_LEFT:
+        start_x, start_y = offset_x, offset_y
         x_operator = y_operator = add
-        if overlay.position == CanvasPosition.TOP_RIGHT:
-            x_operator = sub
-            reverse = overlay.align in [Alignment.ROW, Alignment.ROW_SPLIT]
-            start_x = max_x - offset_x
-
-    else:
-        start_x = offset_x
-        start_y = max_y - offset_y
-        x_operator = y_operator = sub
-        reverse = overlay.align in [Alignment.COLUMN, Alignment.COLUMN_SPLIT]
-        if overlay.position == CanvasPosition.BOTTOM_LEFT:
-            x_operator = add
-        elif overlay.position == CanvasPosition.BOTTOM_RIGHT:
-            start_x = max_x + offset_x
+    elif (
+        ovr.align in [A.COLUMN, A.COLUMN_SPLIT]
+        and ovr.position == CP.TOP_RIGHT
+    ):
+        start_x, start_y = max_x, offset_y
+        x_operator, y_operator = sub, add
+    elif (
+        ovr.align in [A.COLUMN, A.COLUMN_SPLIT]
+        and ovr.position == CP.BOTTOM_LEFT
+    ):
+        start_x, start_y = offset_x, max_y - offset_y
+        x_operator, y_operator = add, sub
+    elif (
+        ovr.align in [A.COLUMN, A.COLUMN_SPLIT]
+        and ovr.position == CP.BOTTOM_RIGHT
+    ):
+        start_x, start_y = max_x, max_y - offset_y
+        x_operator, y_operator = sub, sub
+    elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.TOP_LEFT:
+        start_x, start_y = offset_x, offset_y + height
+        x_operator = y_operator = add
+    elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.TOP_RIGHT:
+        start_x, start_y = max_x, offset_y + height
+        x_operator, y_operator = sub, add
+    elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.BOTTOM_LEFT:
+        start_x, start_y = offset_x, max_y - offset_y - height
+        x_operator, y_operator = add, sub
+    elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.BOTTOM_RIGHT:
+        start_x, start_y = max_x, max_y - offset_y - height
+        x_operator, y_operator = sub, sub
 
     # let's keep the original start_x and start_y for the next row
     start_x_ = start_x
     start_y_ = start_y
 
     # some padding and height calculations
-    padding = 0  # 1 if len(overlay.text()) > 1 else 0
-    width = text_factor * 0.8
-    height = text_factor * 1.75
-    max_text_width, max_text_height = 0, height
+    max_text_width, max_text_height, previous = 0, height, 0
 
     # calculate the positions of the text
-    texts, positions = [], []
-    for text in overlay.text(reverse):
-        # add text
-        texts.append(f'{text}{" " * padding}')
-        n = len(texts[-1])  # number of characters in the text
+    texts = list(ovr.text())
+    positions = np.empty((len(texts), 2), dtype=np.float32)
+    for i, text in enumerate(texts):
+        n = len(text)  # number of characters in the text
         max_text_width = max(max_text_height, n * width)
 
         # single row of legend items
-        if overlay.align == Alignment.ROW:
-            start_x = x_operator(start_x, n * width)
+        if ovr.align == A.ROW:
+            start_x = x_operator(start_x, previous)
+            previous = n * width + padding
         # potentially multiple row of legend items
-        elif overlay.align == Alignment.ROW_SPLIT:
-            start_x = x_operator(start_x, n * width)
-            if start_x > max_x:
-                start_x = x_operator(start_x_, n * width)
-                start_y = start_y + height
+        elif ovr.align == A.ROW_SPLIT:
+            start_x = x_operator(start_x, previous)
+            if (
+                x_operator(start_x, previous) > max_x
+                or x_operator(start_x, previous) < 0
+            ):
+                start_x = x_operator(start_x_, 0)
+                start_y = y_operator(start_y, height)
+            previous = n * width + padding
 
         # single column of legend items
-        elif overlay.align == Alignment.COLUMN:
+        elif ovr.align == A.COLUMN:
             start_y = y_operator(start_y, height)
         # potentially multiple column of legend items
-        elif overlay.align == Alignment.COLUMN_SPLIT:
+        elif ovr.align == A.COLUMN_SPLIT:
             start_y = y_operator(start_y, height)
-            if start_y + height > max_y or start_y < 0:
+            if start_y < 0 or start_y + height > max_y:
                 start_y = y_operator(start_y_, height)
                 start_x = x_operator(
                     x_operator(start_x, max_text_width), width
                 )
         else:
             raise ValueError(
-                f'Unknown alignment {overlay.align} for legend overlay.'
+                f'Unknown alignment {ovr.align} for legend overlay.'
             )
-        # print(text, start_x_, start_x, max_x, start_y_, start_y, max_y)
-        positions.append((start_x, start_y))
-    # print('??', anchor_x, anchor_y, reverse)
+        positions[i] = (start_x, start_y)
     # actually update the text visual
     visual.node.text.text = np.array(texts)
-    visual.node.text.color = overlay.color(reverse)
+    visual.node.text.color = ovr.color()
     visual.node.text.pos = np.array(positions, dtype=np.float32)
     visual.node.text.anchors = (anchor_x, anchor_y)
     return positions

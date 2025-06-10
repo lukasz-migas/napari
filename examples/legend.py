@@ -28,13 +28,20 @@ viewer = napari.view_image(data.astronaut(), rgb=True)
 
 viewer.legend_overlay.visible = True
 viewer.legend_overlay.font_size = 48
-viewer.legend_overlay.position = 'bottom_left'
-viewer.legend_overlay.align = 'column_split'
-for index in range(25):
-    viewer.legend_overlay.add(f'Label {index} ', 'red')
-# viewer.legend_overlay.add('Red', 'red')
-# viewer.legend_overlay.add('Green', 'green')
-# viewer.legend_overlay.add('Blue', 'blue')
+viewer.legend_overlay.position = 'bottom_right'
+viewer.legend_overlay.align = 'row_split'
+viewer.legend_overlay.add('Red 1', 'red')
+viewer.legend_overlay.add('Green 1', 'green')
+viewer.legend_overlay.add('Blue 1', 'blue')
+viewer.legend_overlay.add('Red 1', 'red')
+viewer.legend_overlay.add('Green 1', 'green')
+viewer.legend_overlay.add('Blue 1', 'blue')
+viewer.legend_overlay.add('Red 1', 'red')
+viewer.legend_overlay.add('Green 1', 'green')
+viewer.legend_overlay.add('Blue 1', 'blue')
+viewer.legend_overlay.add('Red 1', 'red')
+viewer.legend_overlay.add('Green 1', 'green')
+viewer.legend_overlay.add('Blue 1', 'blue')
 
 if __name__ == '__main__':
     napari.run()
