@@ -9,7 +9,7 @@ class Legend(Compound):
         # order matters (last is drawn on top)
         super().__init__(
             [
-                Rectangle(center=[0.5, 0.5], width=1.1, height=36),
+                Rectangle(center=[0, 0], width=1.1, height=36),
                 Text(
                     text='1px',
                     pos=[0.5, 0.5],
