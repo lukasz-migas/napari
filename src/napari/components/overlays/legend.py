@@ -53,8 +53,8 @@ class LegendOverlay(CanvasOverlay):
         The rendering order of the overlay: lower numbers get rendered first.
     """
 
-    align: Alignment = Alignment.ROW
     font_size: float = 10
+    align: Alignment = Alignment.ROW
     items: list[LegendItem] = Field(default_factory=list)
     box: bool = False
     box_color: ColorValue = Field(

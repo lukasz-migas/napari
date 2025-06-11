@@ -57,7 +57,7 @@ class LegendControls(QWidget):
         self.font_size_spin.valueChanged.connect(self.on_font_size_change)
 
         self.box_check = QCheckBox()
-        self.box_check.setChecked(False)
+        self.box_check.setChecked(True)
         self.box_check.stateChanged.connect(self.on_box_changed)
 
         self.layout = QFormLayout(self)
@@ -94,8 +94,8 @@ viewer.window.add_dock_widget(widget, area='right')
 
 viewer.legend_overlay.visible = True
 viewer.legend_overlay.font_size = 24
-viewer.legend_overlay.position = 'top_left'
-viewer.legend_overlay.align = 'row'
+viewer.legend_overlay.position = 'bottom_left'
+viewer.legend_overlay.align = 'column'
 viewer.legend_overlay.box = True
 viewer.legend_overlay.box_color = 'yellow'
 viewer.legend_overlay.add('Red 1', 'red')

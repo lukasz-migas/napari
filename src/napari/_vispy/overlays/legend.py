@@ -57,8 +57,9 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         # positioning in the box uses the center of the box
         # need to adjust the y_size to be half the size of the current box height
         self.y_size = self.node.box.height / 2
-        width, height = update_text(self, text_factor)
+        center, width, height = update_text(self, text_factor)
         if width is not None and height is not None:
+            self.node.box.center = center
             self.node.box.width = width
             self.node.box.height = height
 
@@ -87,12 +88,12 @@ ANCHOR_Y_MAP = {
     CP.BOTTOM_RIGHT: 'bottom',
 }
 OFFSET_X_MAP = {
-    CP.TOP_LEFT: 0,
+    CP.TOP_LEFT: 20,
     CP.TOP_CENTER: 0,
-    CP.TOP_RIGHT: 50,
-    CP.BOTTOM_LEFT: 0,
+    CP.TOP_RIGHT: 20,
+    CP.BOTTOM_LEFT: 20,
     CP.BOTTOM_CENTER: 0,
-    CP.BOTTOM_RIGHT: 50,
+    CP.BOTTOM_RIGHT: 20,
 }
 OFFSET_Y_MAP = {
     CP.TOP_LEFT: 20,
@@ -106,7 +107,7 @@ OFFSET_Y_MAP = {
 
 def update_text(
     visual: VispyLegendOverlay, text_factor: float
-) -> tuple[int, int] | None:
+) -> tuple[tuple[int, int], int, int] | None:
     """Get position of the legend overlay."""
     from operator import add, sub
 
@@ -115,7 +116,7 @@ def update_text(
         visual.node.text.text = ovr.text()
         visual.node.text.color = ovr.color()
         visual.node.text.pos = np.array([[0, 0]], dtype=np.float32)
-        return None, None
+        return None, None, None
 
     anchor_x = ANCHOR_X_MAP[ovr.position]
     anchor_y = ANCHOR_Y_MAP[ovr.position]
@@ -128,7 +129,6 @@ def update_text(
 
     # let's calculate any offsets and anchors
     start_x, start_y, x_operator, y_operator = (offset_x, offset_y, add, add)
-    allow_padding = ovr.align in [A.ROW, A.ROW_SPLIT]
     if ovr.align in [A.COLUMN, A.COLUMN_SPLIT] and ovr.position == CP.TOP_LEFT:
         start_x, start_y = offset_x, offset_y
         x_operator = y_operator = add
@@ -154,13 +154,13 @@ def update_text(
         start_x, start_y = offset_x, offset_y + height
         x_operator = y_operator = add
     elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.TOP_RIGHT:
-        start_x, start_y = max_x, offset_y + height
+        start_x, start_y = max_x - offset_x, offset_y + height
         x_operator, y_operator = sub, add
     elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.BOTTOM_LEFT:
         start_x, start_y = offset_x, max_y - offset_y - height
         x_operator, y_operator = add, sub
     elif ovr.align in [A.ROW, A.ROW_SPLIT] and ovr.position == CP.BOTTOM_RIGHT:
-        start_x, start_y = max_x, max_y - offset_y - height
+        start_x, start_y = max_x - offset_x, max_y - offset_y - height
         x_operator, y_operator = sub, sub
 
     # let's keep the original start_x and start_y for the next row
@@ -173,10 +173,11 @@ def update_text(
     # calculate the positions of the text
     texts = list(ovr.text())
     positions = np.empty((len(texts), 2), dtype=np.float32)
+    previous, padding = 0, 0
     for i, text in enumerate(texts):
         n = len(text)  # number of characters in the text
+        padding = calculate_padding(text)
         max_text_width = max(max_text_height, n * width)
-        padding = 0 if not allow_padding else calculate_padding(text)
 
         # single row of legend items
         if ovr.align == A.ROW:
@@ -215,10 +216,32 @@ def update_text(
     visual.node.text.color = ovr.color()
     visual.node.text.pos = np.array(positions, dtype=np.float32)
     visual.node.text.anchors = (anchor_x, anchor_y)
-    box_width, box_height = np.abs(positions.max(axis=0))
-    return np.ceil(box_width or max_text_width).astype(int), np.ceil(
-        box_height or height
-    ).astype(int)
+
+    positions = np.abs(positions)
+    mins = positions.min(axis=0)
+    maxs = positions.max(axis=0)
+    box_width, box_height = maxs - mins
+    # if splitting across row(s), center(x) should be (min + max) / 2 and center(y) should be
+    if ovr.align == A.ROW:
+        box_center_x = x_operator((mins[0] + maxs[0] - padding), previous) / 2
+        box_center_y = y_operator(
+            start_y_, (-height / 1.5 if anchor_y == 'top' else -height / 2)
+        )
+    elif ovr.align == A.COLUMN:
+        box_center_x = x_operator(start_x_, max_text_width / 2)
+        box_center_y = (
+            mins[1]
+            + maxs[1]
+            + (-height / 1.5 if anchor_y == 'top' else -height / 2)
+        ) / 2
+        box_height = box_height + height
+        box_width = max_text_width
+    box_center = (box_center_x, box_center_y)
+    box_width = box_width + previous or max_text_width
+    box_height = box_height or height
+    # print(positions, max_text_width)
+    # print('??', box_center, width, height)
+    return box_center, box_width, box_height
 
 
 def calculate_padding(text: str) -> int:
