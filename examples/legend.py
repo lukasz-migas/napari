@@ -35,6 +35,7 @@ class LegendControls(QWidget):
         self.align_combo.addItems(
             ['row', 'column', 'row_split', 'column_split']
         )
+        self.align_combo.setCurrentText(viewer.legend_overlay.align.value)
         self.align_combo.currentTextChanged.connect(self.on_align_change)
 
         self.position_combo = QComboBox()
@@ -48,16 +49,19 @@ class LegendControls(QWidget):
                 'bottom_right',
             ]
         )
+        self.position_combo.setCurrentText(
+            viewer.legend_overlay.position.value
+        )
         self.position_combo.currentTextChanged.connect(self.on_position_change)
 
         self.font_size_spin = QSpinBox()
         self.font_size_spin.setRange(1, 100)
-        self.font_size_spin.setValue(24)
+        self.font_size_spin.setValue(int(viewer.legend_overlay.font_size))
         self.font_size_spin.setSingleStep(1)
         self.font_size_spin.valueChanged.connect(self.on_font_size_change)
 
         self.box_check = QCheckBox()
-        self.box_check.setChecked(True)
+        self.box_check.setChecked(viewer.legend_overlay.box)
         self.box_check.stateChanged.connect(self.on_box_changed)
 
         self.layout = QFormLayout(self)
@@ -84,8 +88,6 @@ class LegendControls(QWidget):
 
 
 viewer = napari.view_image(data.astronaut(), rgb=True)
-widget = LegendControls()
-viewer.window.add_dock_widget(widget, area='right')
 
 # Create a napari viewer with a 3D, 2 channel image, with the `view_image` convenience function.
 # viewer = napari.view_image(
@@ -94,13 +96,14 @@ viewer.window.add_dock_widget(widget, area='right')
 
 viewer.legend_overlay.visible = True
 viewer.legend_overlay.font_size = 24
-viewer.legend_overlay.position = 'bottom_left'
-viewer.legend_overlay.align = 'column'
+viewer.legend_overlay.position = 'bottom_center'
+viewer.legend_overlay.align = 'row'
 viewer.legend_overlay.box = True
 viewer.legend_overlay.box_color = 'yellow'
 viewer.legend_overlay.add('Red 1', 'red')
 viewer.legend_overlay.add('Green 1', 'green')
 viewer.legend_overlay.add('Blue 1', 'blue')
+viewer.legend_overlay.add('A much longer label', 'magenta')
 # viewer.legend_overlay.add('Red 2', 'red')
 # viewer.legend_overlay.add('Green 2', 'green')
 # viewer.legend_overlay.add('Blue 2', 'blue')
@@ -110,6 +113,10 @@ viewer.legend_overlay.add('Blue 1', 'blue')
 # viewer.legend_overlay.add('Red 4', 'red')
 # viewer.legend_overlay.add('Green 4', 'green')
 # viewer.legend_overlay.add('Blue 4', 'blue')
+
+# create widget
+widget = LegendControls()
+viewer.window.add_dock_widget(widget, area='right')
 
 if __name__ == '__main__':
     napari.run()
