@@ -5,8 +5,8 @@ import numpy as np
 from napari._vispy.overlays.base import ViewerOverlayMixin, VispyCanvasOverlay
 from napari._vispy.visuals.legend import Legend
 from napari.components._viewer_constants import (
-    Alignment as A,
     CanvasPosition as CP,
+    LegendAlignment as LA,
 )
 from napari.components.overlays import LegendOverlay
 
@@ -18,13 +18,13 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         super().__init__(
             node=Legend(), viewer=viewer, overlay=overlay, parent=parent
         )
+        self.node.canvas.events.resize.connect(self._on_text_change)
         self.overlay.events.box.connect(self._on_box_change)
         self.overlay.events.box_color.connect(self._on_box_change)
         self.overlay.events.font_size.connect(self._on_text_change)
         self.overlay.events.position.connect(self._on_text_change)
         self.overlay.events.align.connect(self._on_text_change)
         self.overlay.events.items.connect(self._on_text_change)
-        self.node.canvas.events.resize.connect(self._on_text_change)
 
         self.reset()
 
@@ -57,11 +57,7 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
         # positioning in the box uses the center of the box
         # need to adjust the y_size to be half the size of the current box height
         self.y_size = self.node.box.height / 2
-        center, width, height = update_text(self, text_factor)
-        if width is not None and height is not None:
-            self.node.box.center = center
-            self.node.box.width = width
-            self.node.box.height = height
+        update_text_and_box(self, text_factor)
 
     def reset(self):
         """Reset the overlay to its initial state."""
@@ -74,9 +70,13 @@ class VispyLegendOverlay(ViewerOverlayMixin, VispyCanvasOverlay):
 ANCHOR_X_MAP = {
     CP.TOP_LEFT: 'left',
     CP.TOP_CENTER: 'center',
+    (CP.TOP_CENTER, LA.ROW): 'left',
+    (CP.TOP_CENTER, LA.ROW_SPLIT): 'left',
     CP.TOP_RIGHT: 'right',
     CP.BOTTOM_LEFT: 'left',
     CP.BOTTOM_CENTER: 'center',
+    (CP.BOTTOM_CENTER, LA.ROW): 'left',
+    (CP.BOTTOM_CENTER, LA.ROW_SPLIT): 'left',
     CP.BOTTOM_RIGHT: 'right',
 }
 ANCHOR_Y_MAP = {
@@ -87,27 +87,12 @@ ANCHOR_Y_MAP = {
     CP.BOTTOM_CENTER: 'bottom',
     CP.BOTTOM_RIGHT: 'bottom',
 }
-OFFSET_X_MAP = {
-    CP.TOP_LEFT: 20,
-    CP.TOP_CENTER: 0,
-    CP.TOP_RIGHT: 20,
-    CP.BOTTOM_LEFT: 20,
-    CP.BOTTOM_CENTER: 0,
-    CP.BOTTOM_RIGHT: 20,
-}
-OFFSET_Y_MAP = {
-    CP.TOP_LEFT: 20,
-    CP.TOP_CENTER: 20,
-    CP.TOP_RIGHT: 20,
-    CP.BOTTOM_LEFT: 20,
-    CP.BOTTOM_CENTER: 20,
-    CP.BOTTOM_RIGHT: 20,
-}
+OFFSET_X_MAP = {CP.TOP_CENTER: 0, CP.BOTTOM_CENTER: 0}
 
 
-def update_text(
+def update_text_and_box(
     visual: VispyLegendOverlay, text_factor: float
-) -> tuple[tuple[int, int], int, int] | None:
+) -> None:
     """Get position of the legend overlay."""
     from operator import add, sub
 
@@ -116,21 +101,26 @@ def update_text(
         visual.node.text.text = ovr.text()
         visual.node.text.color = ovr.color()
         visual.node.text.pos = np.array([[0, 0]], dtype=np.float32)
-        return None, None, None
+        return
 
-    anchor_x = ANCHOR_X_MAP[ovr.position]
+    # get anchor positions and offsets - first try a complex combination of position and alignment
+    # otherwise fall back to the position only
+    anchor_x = ANCHOR_X_MAP.get(
+        (ovr.position, ovr.align), ANCHOR_X_MAP[ovr.position]
+    )
     anchor_y = ANCHOR_Y_MAP[ovr.position]
-    offset_x = OFFSET_X_MAP[ovr.position]
-    offset_y = OFFSET_Y_MAP[ovr.position]
+    offset_x = OFFSET_X_MAP.get(ovr.position, 20)
+    offset_y = 20
 
     max_width, max_height = visual.node.canvas.size
-    width = text_factor * 1.01
+    half_width = max_width / 2
+    width = text_factor * 1.01  # 1.01 to account for small amounts of padding
     height = text_factor * 1.75
 
     # let's calculate any offsets and anchors
     start_x, start_y, x_operator, y_operator = offset_x, offset_y, add, add
-    is_row = ovr.align in [A.ROW, A.ROW_SPLIT]
-    is_col = ovr.align in [A.COLUMN, A.COLUMN_SPLIT]
+    is_row = ovr.align in [LA.ROW, LA.ROW_SPLIT]
+    is_col = ovr.align in [LA.COLUMN, LA.COLUMN_SPLIT]
 
     # handle column alignment
     if is_col and ovr.position == CP.TOP_LEFT:
@@ -152,7 +142,8 @@ def update_text(
     elif is_col and ovr.position == CP.BOTTOM_CENTER:
         start_x = max_width / 2
         start_y = max_height - offset_y
-        x_operator, y_operator = sub, sub
+        x_operator, y_operator = add, sub
+
     # handle row alignment
     elif is_row and ovr.position == CP.TOP_LEFT:
         start_x, start_y = offset_x, offset_y + height
@@ -164,9 +155,9 @@ def update_text(
         estimate_width, _ = _estimate_width_and_height(
             ovr.align, ovr.text(), width, height, max_width
         )
-        start_x = max_width / 2 - estimate_width / 2
+        start_x = offset_x + estimate_width * 0.25
         start_y = offset_y + height
-        x_operator, y_operator = sub, add
+        x_operator, y_operator = add, add
     elif is_row and ovr.position == CP.BOTTOM_LEFT:
         start_x, start_y = offset_x, max_height - offset_y - height
         x_operator, y_operator = add, sub
@@ -177,8 +168,7 @@ def update_text(
         estimate_width, estimate_height = _estimate_width_and_height(
             ovr.align, ovr.text(), width, height, max_width
         )
-        start_x = max_width / 2 - estimate_width / 2
-
+        start_x = offset_x + estimate_width * 0.25
         start_y = max_height - offset_y - estimate_height
         x_operator, y_operator = add, sub
 
@@ -187,73 +177,96 @@ def update_text(
     start_y_ = start_y
 
     # some padding and height calculations
-    max_text_width, max_text_height, previous = 0, height, 0
+    max_text_width, previous = 0, 0
 
     # calculate the positions of the text
     texts = list(ovr.text())
     positions = np.empty((len(texts), 2), dtype=np.float32)
-    previous, padding = 0.0, 0
+    previous, padding, n_row, n_col = 0.0, 0, 1, 1
     for i, text in enumerate(texts):
-        n = len(text)  # number of characters in the text
         padding = calculate_padding(text)
-        max_text_width = max(max_text_height, n * width)
+        text_width = _estimate_text_width(text, padding, width)
+        max_text_width = max(max_text_width, text_width)
 
         # single row of legend items
-        if ovr.align == A.ROW:
-            start_x = x_operator(start_x, previous)
-            previous = _estimate_text_width(text, padding, width)
-        # potentially multiple row of legend items
-        elif ovr.align == A.ROW_SPLIT:
-            start_x = x_operator(start_x, previous)
+        if ovr.align == LA.ROW:
+            start_x = x_operator(start_x, previous)  # add previous text width
+            previous = text_width
+
+        # potentially multiple rows of legend items
+        elif ovr.align == LA.ROW_SPLIT:
+            start_x = x_operator(start_x, previous)  # add previous text width
             if (
-                x_operator(start_x, previous) > max_width
-                or x_operator(start_x, previous) < 0
+                x_operator(start_x, text_width) > max_width
+                or x_operator(start_x, text_width) < 0
             ):
-                start_x = x_operator(start_x_, 0)
+                start_x = start_x_
                 start_y = y_operator(start_y, height)
-            previous = _estimate_text_width(text, padding, width)
+                n_row += 1
+            previous = text_width
 
         # single column of legend items
-        elif ovr.align == A.COLUMN:
+        elif ovr.align == LA.COLUMN:
             start_y = y_operator(start_y, height)
-        # potentially multiple column of legend items
-        elif ovr.align == A.COLUMN_SPLIT:
+        # potentially multiple columns of legend items
+        elif ovr.align == LA.COLUMN_SPLIT:
             start_y = y_operator(start_y, height)
             if start_y < 0 or start_y + height > max_height:
                 start_y = y_operator(start_y_, height)
                 start_x = x_operator(
                     x_operator(start_x, max_text_width), width
                 )
+                n_col += 1
         else:
             raise ValueError(
                 f'Unknown alignment {ovr.align} for legend overlay.'
             )
         positions[i] = (start_x, start_y)
 
-    # actually update the text visual
+    # check whether the center of the row is not centered around the middle of the canvas
+    if is_row and ovr.position in [CP.TOP_CENTER, CP.BOTTOM_CENTER]:
+        abs_positions = np.abs(positions)
+        abs_mins = abs_positions.min(axis=0)
+        abs_maxs = abs_positions.max(axis=0)
+        x_spread = (abs_maxs[0] + previous) - abs_mins[0]
+        if abs(half_width - x_spread / 2) > 50:
+            positions[:, 0] += abs(x_spread - half_width) / 2
+
+    # for i, t in enumerate(ovr.text()):
+    #     print(t, positions[i])
+
+    # actually update the text visuals
     visual.node.text.text = np.array(texts)
     visual.node.text.color = ovr.color()
     visual.node.text.pos = np.array(positions, dtype=np.float32)
     visual.node.text.anchors = (anchor_x, anchor_y)
 
+    # update box visual if it's enabled
     if ovr.box:
-        positions = np.abs(positions)
-        mins = positions.min(axis=0)
-        maxs = positions.max(axis=0)
-        box_width, box_height = maxs - mins
+        abs_positions = np.abs(positions)
+        abs_mins = abs_positions.min(axis=0)
+        abs_maxs = abs_positions.max(axis=0)
+        box_center_x, box_center_y = 0, 0
+        box_width, box_height = abs_maxs - abs_mins
+
         # if splitting across row(s), center(x) should be (min + max) / 2 and center(y) should be
-        if ovr.align == A.ROW:
+        if ovr.align in [LA.ROW, LA.ROW_SPLIT]:
             box_center_x = (
-                x_operator((mins[0] + maxs[0] - padding), previous) / 2
+                x_operator((abs_mins[0] + abs_maxs[0] - padding), previous) / 2
             )
             box_center_y = y_operator(
-                start_y_, (-height / 1.5 if anchor_y == 'top' else -height / 2)
+                start_y_,
+                (
+                    -(height * n_row) / 1.5
+                    if anchor_y == 'top'
+                    else -(height * n_row) / 2
+                ),
             )
-        elif ovr.align == A.COLUMN:
+        elif ovr.align == LA.COLUMN:
             box_center_x = x_operator(start_x_, max_text_width / 2)
             box_center_y = (
-                mins[1]
-                + maxs[1]
+                abs_mins[1]
+                + abs_maxs[1]
                 + (-height / 1.5 if anchor_y == 'top' else -height / 2)
             ) / 2
             box_height = box_height + height
@@ -262,10 +275,9 @@ def update_text(
         box_center = (box_center_x, box_center_y)
         box_width = box_width + previous or max_text_width
         box_height = box_height or height
-        # print(positions, max_text_width)
-        # print('??', box_center, width, height)
-        return box_center, box_width, box_height
-    return (0, 0), 1, 1
+        visual.node.box.center = box_center
+        visual.node.box.width = box_width
+        visual.node.box.height = box_height
 
 
 def _estimate_text_width(text: str, padding: int, text_width: float) -> float:
@@ -277,7 +289,7 @@ def _estimate_text_width(text: str, padding: int, text_width: float) -> float:
 
 
 def _estimate_width_and_height(
-    alignment: A,
+    alignment: LA,
     texts: list[str],
     width: float,
     height: float,
@@ -290,10 +302,10 @@ def _estimate_width_and_height(
         _estimate_text_width(text, calculate_padding(text), width)
         for text in texts
     )
-    if alignment == A.ROW:
+    if alignment == LA.ROW:
         return estimated_width, height
-    if alignment == A.ROW_SPLIT and estimated_width > max_width:
-        ratio = np.ceil(estimated_width / width)
+    if alignment == LA.ROW_SPLIT and estimated_width > max_width:
+        ratio = round(estimated_width / max_width)
         return max_width, height * ratio
     return 0, height
 

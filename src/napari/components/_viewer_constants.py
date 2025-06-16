@@ -21,7 +21,7 @@ class CanvasPosition(StrEnum):
     BOTTOM_LEFT = 'bottom_left'
 
 
-class Alignment(StrEnum):
+class LegendAlignment(StrEnum):
     """Alignment of text in legend.
 
     Sets the alignment of text labels in the legend overlay.

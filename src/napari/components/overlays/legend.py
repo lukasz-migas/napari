@@ -3,7 +3,7 @@
 import numpy as np
 
 from napari._pydantic_compat import Field
-from napari.components._viewer_constants import Alignment
+from napari.components._viewer_constants import LegendAlignment
 from napari.components.overlays.base import CanvasOverlay
 from napari.utils.color import ColorValue
 from napari.utils.events import EventedModel
@@ -32,7 +32,7 @@ class LegendOverlay(CanvasOverlay):
 
     Attributes
     ----------
-    align: Alignment
+    align: LegendAlignment
         Determines how the legend items are displayed.
     font_size : float
         The font size (in points) of the text.
@@ -54,7 +54,7 @@ class LegendOverlay(CanvasOverlay):
     """
 
     font_size: float = 10
-    align: Alignment = Alignment.ROW
+    align: LegendAlignment = LegendAlignment.ROW
     items: list[LegendItem] = Field(default_factory=list)
     box: bool = False
     box_color: ColorValue = Field(
@@ -65,19 +65,19 @@ class LegendOverlay(CanvasOverlay):
         """Number of visible legend items."""
         return sum(item.visible for item in self.items)
 
-    def text(self, reverse: bool = False) -> np.ndarray:
+    def text(self) -> np.ndarray:
         """Get the text of the legend items."""
         if not self.items:
-            return ''
+            return np.array([], dtype=str)
         array = np.array([item.text for item in self.items])
-        return array if not reverse else array[::-1]
+        return array
 
-    def color(self, reverse: bool = False) -> None | np.ndarray:
+    def color(self) -> None | np.ndarray:
         """Get the color of the legend items."""
         if not self.items:
             return None
         array = np.array([item.color for item in self.items], dtype=np.float32)
-        return array if not reverse else array[::-1]
+        return array
 
     def add(self, text: str, color: ColorValue, visible: bool = True):
         """Add a legend item to the overlay.

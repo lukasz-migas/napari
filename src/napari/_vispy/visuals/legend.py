@@ -1,10 +1,11 @@
 """Legend visual."""
 
-import numpy as np
 from vispy.scene.visuals import Compound, Rectangle, Text
 
 
 class Legend(Compound):
+    """Legend visual."""
+
     def __init__(self) -> None:
         # order matters (last is drawn on top)
         super().__init__(
@@ -22,12 +23,10 @@ class Legend(Compound):
 
     @property
     def box(self):
+        """Box visual."""
         return self._subvisuals[0]
 
     @property
     def text(self):
+        """Text visual."""
         return self._subvisuals[1]
-
-    def set_data(self, text: list[str], color: list[np.ndarray]) -> None:
-        self.text.text = text
-        self.text.color = color
