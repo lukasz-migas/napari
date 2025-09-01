@@ -65,9 +65,9 @@ jobs:
       TOX_WORK_DIR: .tox
       TOX_EXTRAS: ${{ inputs.tox_extras }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: wheel
           path: dist

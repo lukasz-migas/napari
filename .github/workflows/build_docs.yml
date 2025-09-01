@@ -24,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone docs repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: docs  # place in a named directory
           repository: napari/docs
 
       - name: Clone main repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: napari  # place in a named directory
           # ensure version metadata is proper
